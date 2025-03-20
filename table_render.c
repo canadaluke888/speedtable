@@ -57,18 +57,22 @@ void render_table(char ***data, int rows, int cols, char *output) {
     }
     printf("\n");
 
-    // Top border (HEAVY for header)
+    // Top border (HEAVY)
     strcat(output, "┏");
     for (int j = 0; j < cols; j++) {
-        for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");  // Heavy
+        for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");
         strcat(output, (j < cols - 1) ? "┳" : "┓");
     }
     strcat(output, "\n");
 
     // Table content
     for (int i = 0; i < rows; i++) {
-        // Use heavy separator for header, light for body
-        strcat(output, (i == 0) ? "┃" : "│");
+        // 🔹 Use different separators for header vs. body
+        if (i == 0) {
+            strcat(output, "┃");  // Header column separator (HEAVY)
+        } else {
+            strcat(output, "│");  // Body column separator (LIGHT)
+        }
 
         for (int j = 0; j < cols; j++) {
             strcat(output, " ");
@@ -80,7 +84,6 @@ void render_table(char ***data, int rows, int cols, char *output) {
 
             strcat(output, data[i][j]);
 
-            // Reset formatting after header row
             if (i == 0) {
                 strcat(output, "\033[0m"); // End Bold
             }
@@ -93,22 +96,31 @@ void render_table(char ***data, int rows, int cols, char *output) {
             // Ensure proper padding so vertical bars align
             for (int k = used_width; k < col_widths[j] - 2; k++) strcat(output, " ");
             
-            strcat(output, (i == 0) ? " ┃" : " │");  // Heavy for header, light for body
+            // 🔹 Use different separators for header vs. body
+            if (i == 0) {
+                strcat(output, " ┃");  // Header separator (HEAVY)
+            } else {
+                strcat(output, " │");  // Body separator (LIGHT)
+            }
         }
         strcat(output, "\n");
 
-        // Separator line
-        if (i == 0) {  // After the header
-            strcat(output, "┣");
+        // Header separator (HEAVY)
+        if (i == 0) {
+            printf("DEBUG: Using HEAVY header separator (┡━╇┩)\n");
+            strcat(output, "┡");
             for (int j = 0; j < cols; j++) {
-                for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");  // Heavy
-                strcat(output, (j < cols - 1) ? "╋" : "┫");
+                for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");
+                strcat(output, (j < cols - 1) ? "╇" : "┩");
             }
             strcat(output, "\n");
-        } else if (i < rows - 1) {  // Between regular rows
+        }
+        // Body row separators (LIGHT)
+        else if (i < rows - 1) {
+            printf("DEBUG: Using LIGHT body separator (├─┼┤)\n");
             strcat(output, "├");
             for (int j = 0; j < cols; j++) {
-                for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");  // Light
+                for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");
                 strcat(output, (j < cols - 1) ? "┼" : "┤");
             }
             strcat(output, "\n");
@@ -118,11 +130,12 @@ void render_table(char ***data, int rows, int cols, char *output) {
     // Bottom border (LIGHT)
     strcat(output, "└");
     for (int j = 0; j < cols; j++) {
-        for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");  // Light
+        for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");
         strcat(output, (j < cols - 1) ? "┴" : "┘");
     }
     strcat(output, "\n");
 }
+
 
 
 
