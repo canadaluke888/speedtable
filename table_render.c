@@ -30,7 +30,6 @@ const char* get_ansi_code(const char* color_name, int is_header) {
     return "\033[0m";  // Default: Reset color
 }
 
-
 // Function to compute the maximum column widths
 void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
     for (int j = 0; j < cols; j++) {
@@ -44,15 +43,11 @@ void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
             if (used_width > max_width) {
                 max_width = used_width;
             }
-
-            printf("DEBUG - Row %d Col %d: Content [%s], Width: %d\n", i, j, data[i][j], used_width);
         }
 
         col_widths[j] = max_width + 2;  // Add padding
-        printf("DEBUG - Final Width for Column %d: %d\n", j, col_widths[j]);
     }
 }
-
 
 // Function to render the table
 void render_table(
@@ -176,9 +171,6 @@ void render_table(
     }
     strcat(output, "\033[0m\n");
 }
-
-
-
 
 // Python wrapper function
 static PyObject* py_render_table(PyObject* self, PyObject* args) {
