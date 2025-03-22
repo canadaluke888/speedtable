@@ -14,6 +14,6 @@ table_data = {
 }
 
 # Call the C extension
-table_output = table_render.render_table(table_data, "blue", "magenta", "white", "cyan")
+table_output = table_render.render_table(table_data, "blue", "magenta", "white", "cyan", "Test", "red")
 
 print(table_output)

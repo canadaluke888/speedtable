@@ -58,16 +58,35 @@ void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
 void render_table(
     char ***data, int rows, int cols, char *output,
     const char *header_color_name, const char *border_color_name,
-    const char *body_color_name, const char *type_color_name
+    const char *body_color_name, const char *type_color_name,
+    const char *title, const char *title_color_name
 ) {
     int col_widths[cols];
     compute_column_widths(data, rows, cols, col_widths);
     memset(output, 0, OUTPUT_BUFFER_SIZE);
 
-    const char *header_color = get_ansi_code(header_color_name, 1); // always bold
+    const char *header_color = get_ansi_code(header_color_name, 1);
     const char *border_color = get_ansi_code(border_color_name, 0);
     const char *body_color = get_ansi_code(body_color_name, 0);
-    const char *type_color = get_ansi_code(type_color_name, 0); // not bold
+    const char *type_color = get_ansi_code(type_color_name, 0);
+    const char *title_color = get_ansi_code(title_color_name, 0);
+
+    int total_width = 1; // For the left border
+    for (int j = 0; j < cols; j++) {
+        total_width += col_widths[j];
+        total_width += 1; // For the separators
+    }
+
+    // Title Line (centered, italic, colored)
+    if (strlen(title) > 0) {
+        int title_len = strlen(title);
+        int padding = (total_width - title_len) / 2;
+        for (int i = 0; i < padding; i++) strcat(output, " ");
+        strcat(output, title_color);
+        strcat(output, "\033[3m");  // Italic
+        strcat(output, title);
+        strcat(output, "\033[0m\n");
+    }
 
     // Top border
     strcat(output, border_color);
@@ -88,6 +107,7 @@ void render_table(
             strcat(output, " ");
 
             if (i == 0) {
+                // Header row
                 char *header = data[i][j];
                 char *paren = strchr(header, '(');
                 if (paren) {
@@ -109,6 +129,7 @@ void render_table(
                     strcat(output, "\033[0m");
                 }
             } else {
+                // Body rows
                 strcat(output, body_color);
                 strcat(output, data[i][j]);
                 strcat(output, "\033[0m");
@@ -157,12 +178,15 @@ void render_table(
 }
 
 
+
+
 // Python wrapper function
 static PyObject* py_render_table(PyObject* self, PyObject* args) {
     PyObject *table_data;
     const char *header_color, *border_color, *body_color, *type_color;
+    const char *title_text, *title_color;
 
-    if (!PyArg_ParseTuple(args, "Ossss", &table_data, &header_color, &border_color, &body_color, &type_color)) {
+    if (!PyArg_ParseTuple(args, "Ossssss", &table_data, &header_color, &border_color, &body_color, &type_color, &title_text, &title_color)) {
         return NULL;
     }
 
@@ -231,7 +255,7 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     char *output = malloc(OUTPUT_BUFFER_SIZE);
     if (!output) return PyErr_NoMemory();
 
-    render_table(data, num_rows + 1, cols, output, header_color, border_color, body_color, type_color);
+    render_table(data, num_rows + 1, cols, output, header_color, border_color, body_color, type_color, title_text, title_color);
 
     for (int i = 0; i <= num_rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -254,7 +278,6 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     free(output);
     return result;
 }
-
 
 // Define method mappings
 static PyMethodDef TableMethods[] = {
