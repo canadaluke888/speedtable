@@ -34,30 +34,25 @@ const char* get_ansi_code(const char* color_name, int is_header) {
 // Function to compute the maximum column widths
 void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
     for (int j = 0; j < cols; j++) {
-        col_widths[j] = 0;
+        int max_width = 0;
+
         for (int i = 0; i < rows; i++) {
-            if (data[i][j] != NULL) {
-                wchar_t wstr[256];
-                mbstowcs(wstr, data[i][j], 256);
-                int len = wcswidth(wstr, wcslen(wstr));
+            wchar_t wstr[256];
+            mbstowcs(wstr, data[i][j], 256);
+            int used_width = wcswidth(wstr, wcslen(wstr));
 
-                // 🔹 If this is the header row, add an extra space for bold text handling
-                if (i == 0) {
-                    len += 1;
-                }
-
-                // 🔹 Ensure at least 1 space of padding between columns
-                len += 2; 
-
-                if (len > col_widths[j]) {
-                    col_widths[j] = len;
-                }
+            if (used_width > max_width) {
+                max_width = used_width;
             }
+
+            printf("DEBUG - Row %d Col %d: Content [%s], Width: %d\n", i, j, data[i][j], used_width);
         }
-        // Debug to check final column width
-        printf("Column %d FINAL width: %d\n", j, col_widths[j]);
+
+        col_widths[j] = max_width + 2;  // Add padding
+        printf("DEBUG - Final Width for Column %d: %d\n", j, col_widths[j]);
     }
 }
+
 
 // Function to render the table
 void render_table(
@@ -164,48 +159,50 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
         return NULL;
     }
 
-    // Extract columns list
+    // Extract columns
     PyObject *columns = PyDict_GetItemString(table_data, "columns");
     if (!columns || !PyList_Check(columns)) {
         return PyErr_Format(PyExc_TypeError, "'columns' must be a list");
     }
 
     int cols = PyList_Size(columns);
-    char **col_names = (char **)malloc(cols * sizeof(char *));
+    char **col_keys = (char **)malloc(cols * sizeof(char *));      // Original column names
+    char **col_headers = (char **)malloc(cols * sizeof(char *));   // Header with types
+
     for (int j = 0; j < cols; j++) {
         PyObject *col = PyList_GetItem(columns, j);
         PyObject *name = PyDict_GetItemString(col, "name");
         PyObject *type = PyDict_GetItemString(col, "type");
-        
+
         if (!name || !PyUnicode_Check(name) || !type || !PyUnicode_Check(type)) {
-            return PyErr_Format(PyExc_TypeError, "Columns must have 'name' and 'type' as strings");
+            return PyErr_Format(PyExc_TypeError, "Each column must have a string 'name' and 'type'");
         }
 
-        // Format column header as "Name (type)"
         const char *col_name_str = PyUnicode_AsUTF8(name);
         const char *col_type_str = PyUnicode_AsUTF8(type);
-        char full_col_name[100];
-        snprintf(full_col_name, sizeof(full_col_name), "%s (%s)", col_name_str, col_type_str);
-        
-        col_names[j] = strdup(full_col_name);
+
+        col_keys[j] = strdup(col_name_str);  // For dictionary lookup
+        char full_header[100];
+        snprintf(full_header, sizeof(full_header), "%s (%s)", col_name_str, col_type_str);
+        col_headers[j] = strdup(full_header);  // For display
     }
 
-    // Extract rows list
+    // Extract rows
     PyObject *rows = PyDict_GetItemString(table_data, "rows");
     if (!rows || !PyList_Check(rows)) {
         return PyErr_Format(PyExc_TypeError, "'rows' must be a list");
     }
 
     int num_rows = PyList_Size(rows);
-    char ***data = (char ***)malloc((num_rows + 1) * sizeof(char **));
+    char ***data = (char ***)malloc((num_rows + 1) * sizeof(char **));  // +1 for headers
 
-    // Store column headers with types
+    // Fill in the header row
     data[0] = (char **)malloc(cols * sizeof(char *));
     for (int j = 0; j < cols; j++) {
-        data[0][j] = strdup(col_names[j]);
+        data[0][j] = strdup(col_headers[j]);
     }
 
-    // Store row data
+    // Fill in the body rows
     for (int i = 0; i < num_rows; i++) {
         PyObject *row = PyList_GetItem(rows, i);
         if (!row || !PyDict_Check(row)) {
@@ -214,9 +211,9 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
 
         data[i + 1] = (char **)malloc(cols * sizeof(char *));
         for (int j = 0; j < cols; j++) {
-            PyObject *value = PyDict_GetItemString(row, col_names[j]);
+            PyObject *value = PyDict_GetItemString(row, col_keys[j]);
             if (!value) {
-                return PyErr_Format(PyExc_KeyError, "Missing key '%s' in row %d", col_names[j], i);
+                return PyErr_Format(PyExc_KeyError, "Missing key '%s' in row %d", col_keys[j], i);
             }
 
             PyObject *str_value = PyObject_Str(value);
@@ -225,14 +222,13 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
         }
     }
 
-    // Allocate output buffer
+    // Allocate buffer for final table output
     char *output = malloc(OUTPUT_BUFFER_SIZE);
     if (!output) return PyErr_NoMemory();
 
-    // Call render_table with updated headers
     render_table(data, num_rows + 1, cols, output, header_color, border_color, body_color);
 
-    // Free allocated memory
+    // Free everything
     for (int i = 0; i <= num_rows; i++) {
         for (int j = 0; j < cols; j++) {
             free(data[i][j]);
@@ -240,15 +236,18 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
         free(data[i]);
     }
     free(data);
-    free(col_names);
+
+    for (int j = 0; j < cols; j++) {
+        free(col_keys[j]);
+        free(col_headers[j]);
+    }
+    free(col_keys);
+    free(col_headers);
 
     PyObject *result = PyUnicode_FromString(output);
     free(output);
     return result;
 }
-
-
-
 
 // Define method mappings
 static PyMethodDef TableMethods[] = {
