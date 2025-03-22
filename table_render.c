@@ -8,9 +8,28 @@
 #define CELL_PADDING 2
 #define OUTPUT_BUFFER_SIZE 1000000  // 1MB buffer for large tables
 
-#define BOLD_START "\033[1m"
-#define COLOR_BLUE "\033[34m"
-#define RESET_FORMAT "\033[0m"
+// Color mapping to ANSI code
+const char* get_ansi_code(const char* color_name, int is_header) {
+    if (strcmp(color_name, "black") == 0) return is_header ? "\033[1;30m" : "\033[0;30m";
+    if (strcmp(color_name, "red") == 0) return is_header ? "\033[1;31m" : "\033[0;31m";
+    if (strcmp(color_name, "green") == 0) return is_header ? "\033[1;32m" : "\033[0;32m";
+    if (strcmp(color_name, "yellow") == 0) return is_header ? "\033[1;33m" : "\033[0;33m";
+    if (strcmp(color_name, "blue") == 0) return is_header ? "\033[1;34m" : "\033[0;34m";
+    if (strcmp(color_name, "magenta") == 0) return is_header ? "\033[1;35m" : "\033[0;35m";
+    if (strcmp(color_name, "cyan") == 0) return is_header ? "\033[1;36m" : "\033[0;36m";
+    if (strcmp(color_name, "white") == 0) return is_header ? "\033[1;37m" : "\033[0;37m";
+    
+    if (strcmp(color_name, "bold_red") == 0) return "\033[1;31m";  // Only used for headers
+    if (strcmp(color_name, "bold_green") == 0) return "\033[1;32m";
+    if (strcmp(color_name, "bold_yellow") == 0) return "\033[1;33m";
+    if (strcmp(color_name, "bold_blue") == 0) return "\033[1;34m";
+    if (strcmp(color_name, "bold_magenta") == 0) return "\033[1;35m";
+    if (strcmp(color_name, "bold_cyan") == 0) return "\033[1;36m";
+    if (strcmp(color_name, "bold_white") == 0) return "\033[1;37m";
+
+    return "\033[0m";  // Default: Reset color
+}
+
 
 // Function to compute the maximum column widths
 void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
@@ -40,15 +59,20 @@ void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
     }
 }
 
-
-
-
 // Function to render the table
-void render_table(char ***data, int rows, int cols, char *output) {
+void render_table(
+    char ***data, int rows, int cols, char *output,
+    const char *header_color_name, const char *border_color_name, const char *body_color_name
+) {
     int col_widths[cols];
     compute_column_widths(data, rows, cols, col_widths);
 
     memset(output, 0, OUTPUT_BUFFER_SIZE);
+
+    // Convert color names to ANSI codes
+    const char *header_color = get_ansi_code(header_color_name, 1);  // Always bold
+    const char *border_color = get_ansi_code(border_color_name, 0);
+    const char *body_color = get_ansi_code(body_color_name, 0);  // Never bold
 
     // Debug: Print column widths
     printf("\nDEBUG - Column widths: ");
@@ -57,93 +81,86 @@ void render_table(char ***data, int rows, int cols, char *output) {
     }
     printf("\n");
 
-    // Top border (HEAVY)
+    // Top border
+    strcat(output, border_color);
     strcat(output, "┏");
     for (int j = 0; j < cols; j++) {
         for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");
         strcat(output, (j < cols - 1) ? "┳" : "┓");
     }
-    strcat(output, "\n");
+    strcat(output, "\033[0m\n");
 
     // Table content
     for (int i = 0; i < rows; i++) {
-        // 🔹 Use different separators for header vs. body
-        if (i == 0) {
-            strcat(output, "┃");  // Header column separator (HEAVY)
-        } else {
-            strcat(output, "│");  // Body column separator (LIGHT)
-        }
+        strcat(output, border_color);
+        strcat(output, (i == 0) ? "┃" : "│");
+        strcat(output, "\033[0m");
 
         for (int j = 0; j < cols; j++) {
             strcat(output, " ");
 
-            // Apply bold formatting only for header row
+            // Header row (always bold)
             if (i == 0) {
-                strcat(output, "\033[1m"); // Start Bold
+                strcat(output, header_color);  
+            } else {
+                strcat(output, body_color);
             }
 
             strcat(output, data[i][j]);
-
-            if (i == 0) {
-                strcat(output, "\033[0m"); // End Bold
-            }
+            strcat(output, "\033[0m");  // Reset color after text
 
             // Compute text width and adjust spacing
             wchar_t wstr[256];
             mbstowcs(wstr, data[i][j], 256);
             int used_width = wcswidth(wstr, wcslen(wstr));
 
-            // Ensure proper padding so vertical bars align
+            // Ensure proper padding
             for (int k = used_width; k < col_widths[j] - 2; k++) strcat(output, " ");
             
-            // 🔹 Use different separators for header vs. body
-            if (i == 0) {
-                strcat(output, " ┃");  // Header separator (HEAVY)
-            } else {
-                strcat(output, " │");  // Body separator (LIGHT)
-            }
+            strcat(output, border_color);
+            strcat(output, (i == 0) ? " ┃" : " │");
+            strcat(output, "\033[0m");
         }
         strcat(output, "\n");
 
         // Header separator (HEAVY)
         if (i == 0) {
-            printf("DEBUG: Using HEAVY header separator (┡━╇┩)\n");
+            strcat(output, border_color);
             strcat(output, "┡");
             for (int j = 0; j < cols; j++) {
                 for (int k = 0; k < col_widths[j]; k++) strcat(output, "━");
                 strcat(output, (j < cols - 1) ? "╇" : "┩");
             }
-            strcat(output, "\n");
+            strcat(output, "\033[0m\n");
         }
         // Body row separators (LIGHT)
         else if (i < rows - 1) {
-            printf("DEBUG: Using LIGHT body separator (├─┼┤)\n");
+            strcat(output, border_color);
             strcat(output, "├");
             for (int j = 0; j < cols; j++) {
                 for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");
                 strcat(output, (j < cols - 1) ? "┼" : "┤");
             }
-            strcat(output, "\n");
+            strcat(output, "\033[0m\n");
         }
     }
 
-    // Bottom border (LIGHT)
+    // Bottom border
+    strcat(output, border_color);
     strcat(output, "└");
     for (int j = 0; j < cols; j++) {
         for (int k = 0; k < col_widths[j]; k++) strcat(output, "─");
         strcat(output, (j < cols - 1) ? "┴" : "┘");
     }
-    strcat(output, "\n");
+    strcat(output, "\033[0m\n");
 }
-
-
-
 
 // Python wrapper function
 static PyObject* py_render_table(PyObject* self, PyObject* args) {
-    PyObject *table_data;  // Raw table dictionary
+    PyObject *table_data;
+    const char *header_color, *border_color, *body_color;
 
-    if (!PyArg_ParseTuple(args, "O", &table_data)) {
+    if (!PyArg_ParseTuple(args, "Osss", &table_data, &header_color, &border_color, &body_color)) {
         return NULL;
     }
 
@@ -158,10 +175,19 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     for (int j = 0; j < cols; j++) {
         PyObject *col = PyList_GetItem(columns, j);
         PyObject *name = PyDict_GetItemString(col, "name");
-        if (!name || !PyUnicode_Check(name)) {
-            return PyErr_Format(PyExc_TypeError, "Column names must be strings");
+        PyObject *type = PyDict_GetItemString(col, "type");
+        
+        if (!name || !PyUnicode_Check(name) || !type || !PyUnicode_Check(type)) {
+            return PyErr_Format(PyExc_TypeError, "Columns must have 'name' and 'type' as strings");
         }
-        col_names[j] = strdup(PyUnicode_AsUTF8(name));
+
+        // Format column header as "Name (type)"
+        const char *col_name_str = PyUnicode_AsUTF8(name);
+        const char *col_type_str = PyUnicode_AsUTF8(type);
+        char full_col_name[100];
+        snprintf(full_col_name, sizeof(full_col_name), "%s (%s)", col_name_str, col_type_str);
+        
+        col_names[j] = strdup(full_col_name);
     }
 
     // Extract rows list
@@ -171,9 +197,9 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     }
 
     int num_rows = PyList_Size(rows);
-    char ***data = (char ***)malloc((num_rows + 1) * sizeof(char **));  // +1 for column headers
+    char ***data = (char ***)malloc((num_rows + 1) * sizeof(char **));
 
-    // Store column headers
+    // Store column headers with types
     data[0] = (char **)malloc(cols * sizeof(char *));
     for (int j = 0; j < cols; j++) {
         data[0][j] = strdup(col_names[j]);
@@ -193,7 +219,6 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
                 return PyErr_Format(PyExc_KeyError, "Missing key '%s' in row %d", col_names[j], i);
             }
 
-            // Convert value to string
             PyObject *str_value = PyObject_Str(value);
             data[i + 1][j] = strdup(PyUnicode_AsUTF8(str_value));
             Py_DECREF(str_value);
@@ -204,7 +229,8 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     char *output = malloc(OUTPUT_BUFFER_SIZE);
     if (!output) return PyErr_NoMemory();
 
-    render_table(data, num_rows + 1, cols, output);  // Render table
+    // Call render_table with updated headers
+    render_table(data, num_rows + 1, cols, output, header_color, border_color, body_color);
 
     // Free allocated memory
     for (int i = 0; i <= num_rows; i++) {
@@ -220,6 +246,8 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     free(output);
     return result;
 }
+
+
 
 
 // Define method mappings

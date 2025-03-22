@@ -1,5 +1,9 @@
 import table_render
 
+HEADER_COLOR = "bold_yellow"
+BORDER_COLOR = "bold_blue"
+BODY_COLOR = "white"
+
 table_data = {
     "columns": [
         {"name": "ID", "type": "int"},
@@ -13,5 +17,7 @@ table_data = {
     ]
 }
 
-c_table = table_render.render_table(table_data)
-print(c_table)
+# Call the C extension
+table_output = table_render.render_table(table_data, HEADER_COLOR, BORDER_COLOR, BODY_COLOR)
+
+print(table_output)
