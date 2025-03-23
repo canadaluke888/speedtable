@@ -1,0 +1,16 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# C extension build artifacts
+build/
+dist/
+*.egg-info/
+
+# Compiled shared object files
+*.so
+
+# VSCode & local environment
+.vscode/
+.env
+.venv/

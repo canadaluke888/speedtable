@@ -1,4 +1,4 @@
-import table_render
+import speedtable
 
 table_data = {
     "columns": [
@@ -14,6 +14,14 @@ table_data = {
 }
 
 # Call the C extension
-table_output = table_render.render_table(table_data, "blue", "magenta", "white", "cyan", "Test", "red")
+table_output = speedtable.render_table(
+    table_data,
+    "blue",     # header color
+    "magenta",  # border color
+    "white",    # body color
+    "cyan",     # type label color
+    "Test",     # title text
+    "red"       # title color
+)
 
 print(table_output)
