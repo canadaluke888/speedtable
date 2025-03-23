@@ -59,6 +59,9 @@ print(speedtable.render_table(
 ```
 
 ---
+## 📷 Output
+![SpeedTable Demo](assets/speedtable-demo.png) 
+---
 
 ## 🎨 Supported Color Names
 
