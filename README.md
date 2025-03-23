@@ -60,7 +60,8 @@ print(speedtable.render_table(
 
 ---
 ## 📷 Output
-![SpeedTable Demo](assets/speedtable-demo.png) 
+![SpeedTable Demo](https://raw.githubusercontent.com/canadaluke888/speedtable/master/assets/speedtable-demo.png)
+
 ---
 
 ## 🎨 Supported Color Names
