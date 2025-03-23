@@ -7,7 +7,7 @@ module = Extension(
 
 setup(
     name="speedtable",
-    version="1.0.0",
+    version="1.0.1",
     description="Ultra-fast terminal table renderer written in C",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
