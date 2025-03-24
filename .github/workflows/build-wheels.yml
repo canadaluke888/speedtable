@@ -1,9 +1,9 @@
-name: Build & Upload Wheels
+name: Build and Publish
 
 on:
   push:
     tags:
-      - 'v*'  # Only trigger on version tags like v1.0.3
+      - "v*"
 
 jobs:
   build:
@@ -14,25 +14,29 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip setuptools wheel build
+        run: pip install build cibuildwheel
 
-      - name: Build distribution
-        run: python -m build
+      - name: Build wheels
+        run: cibuildwheel --output-dir wheelhouse
 
-      - name: Upload wheel artifacts
+      - name: Build sdist (only on Ubuntu)
+        if: matrix.os == 'ubuntu-latest'
+        run: python -m build --sdist --outdir wheelhouse
+
+      - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
-          path: dist/*
+          path: wheelhouse/*.*
+          if-no-files-found: error
 
   publish:
     name: Publish to PyPI
