@@ -3,9 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
-#include <regex.h>
 
-#define CELL_PADDING 2
 #define INITIAL_CAPACITY 128
 
 // Dynamic buffer structure for dynamic string building
