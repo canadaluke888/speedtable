@@ -41,6 +41,15 @@ void dyn_buf_free(dyn_buf *db) {
     }
 }
 
+// Portable fallback for wcswidth (since MSVC doesn't support it)
+int portable_wcswidth(const wchar_t *wstr) {
+    int width = 0;
+    for (size_t i = 0; i < wcslen(wstr); i++) {
+        width += (wstr[i] > 127) ? 2 : 1;
+    }
+    return width;
+}
+
 // Color mapping to ANSI code
 const char* get_ansi_code(const char* color_name, int is_header) {
     if (strcmp(color_name, "black") == 0) return is_header ? "\033[1;30m" : "\033[0;30m";
@@ -51,7 +60,6 @@ const char* get_ansi_code(const char* color_name, int is_header) {
     if (strcmp(color_name, "magenta") == 0) return is_header ? "\033[1;35m" : "\033[0;35m";
     if (strcmp(color_name, "cyan") == 0) return is_header ? "\033[1;36m" : "\033[0;36m";
     if (strcmp(color_name, "white") == 0) return is_header ? "\033[1;37m" : "\033[0;37m";
-    
     if (strcmp(color_name, "bold_red") == 0) return "\033[1;31m";
     if (strcmp(color_name, "bold_green") == 0) return "\033[1;32m";
     if (strcmp(color_name, "bold_yellow") == 0) return "\033[1;33m";
@@ -59,8 +67,7 @@ const char* get_ansi_code(const char* color_name, int is_header) {
     if (strcmp(color_name, "bold_magenta") == 0) return "\033[1;35m";
     if (strcmp(color_name, "bold_cyan") == 0) return "\033[1;36m";
     if (strcmp(color_name, "bold_white") == 0) return "\033[1;37m";
-
-    return "\033[0m";  // Default: Reset color
+    return "\033[0m";
 }
 
 // Function to compute the maximum column widths.
@@ -70,7 +77,7 @@ void compute_column_widths(char ***data, int rows, int cols, int *col_widths) {
         for (int i = 0; i < rows; i++) {
             wchar_t wstr[256];
             mbstowcs(wstr, data[i][j], 256);
-            int used_width = wcswidth(wstr, wcslen(wstr));
+            int used_width = portable_wcswidth(wstr);
             if (used_width > max_width) {
                 max_width = used_width;
             }
@@ -86,7 +93,12 @@ void render_table(
     const char *body_color_name, const char *type_color_name,
     const char *title, const char *title_color
 ) {
-    int col_widths[cols];
+    int *col_widths = (int *)malloc(cols * sizeof(int));
+    if (!col_widths) {
+        fprintf(stderr, "Failed to allocate memory for col_widths\n");
+        return;
+    }
+
     compute_column_widths(data, rows, cols, col_widths);
     out->length = 0;
     if (out->data)
@@ -98,24 +110,21 @@ void render_table(
     const char *type_color = get_ansi_code(type_color_name, 0);
     const char *title_color_code = get_ansi_code(title_color, 0);
 
-    int total_width = 1; // For the left border
+    int total_width = 1;
     for (int j = 0; j < cols; j++) {
-        total_width += col_widths[j];
-        total_width += 1; // For the separators
+        total_width += col_widths[j] + 1;
     }
 
-    // Title line (centered, italic, colored)
     if (strlen(title) > 0) {
         int title_len = strlen(title);
         int padding = (total_width - title_len) / 2;
         for (int i = 0; i < padding; i++) dyn_buf_append(out, " ");
         dyn_buf_append(out, title_color_code);
-        dyn_buf_append(out, "\033[3m");  // Italic
+        dyn_buf_append(out, "\033[3m");
         dyn_buf_append(out, title);
         dyn_buf_append(out, "\033[0m\n");
     }
 
-    // Top border
     dyn_buf_append(out, border_color);
     dyn_buf_append(out, "┏");
     for (int j = 0; j < cols; j++) {
@@ -124,7 +133,6 @@ void render_table(
     }
     dyn_buf_append(out, "\033[0m\n");
 
-    // Table content
     for (int i = 0; i < rows; i++) {
         dyn_buf_append(out, border_color);
         dyn_buf_append(out, (i == 0) ? "┃" : "│");
@@ -132,7 +140,6 @@ void render_table(
         for (int j = 0; j < cols; j++) {
             dyn_buf_append(out, " ");
             if (i == 0) {
-                // Header row
                 char *header = data[i][j];
                 char *paren = strchr(header, '(');
                 if (paren) {
@@ -152,14 +159,14 @@ void render_table(
                     dyn_buf_append(out, "\033[0m");
                 }
             } else {
-                // Body rows
                 dyn_buf_append(out, body_color);
                 dyn_buf_append(out, data[i][j]);
                 dyn_buf_append(out, "\033[0m");
             }
+
             wchar_t wstr[256];
             mbstowcs(wstr, data[i][j], 256);
-            int used_width = wcswidth(wstr, wcslen(wstr));
+            int used_width = portable_wcswidth(wstr);
             for (int k = used_width; k < col_widths[j] - 2; k++) dyn_buf_append(out, " ");
             dyn_buf_append(out, border_color);
             dyn_buf_append(out, (i == 0) ? " ┃" : " │");
@@ -185,7 +192,6 @@ void render_table(
         }
     }
 
-    // Bottom border
     dyn_buf_append(out, border_color);
     dyn_buf_append(out, "└");
     for (int j = 0; j < cols; j++) {
@@ -193,6 +199,8 @@ void render_table(
         dyn_buf_append(out, (j < cols - 1) ? "┴" : "┘");
     }
     dyn_buf_append(out, "\033[0m\n");
+
+    free(col_widths);
 }
 
 // Python wrapper function.
@@ -203,10 +211,12 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     if (!PyArg_ParseTuple(args, "Ossssss", &table_data, &header_color, &border_color, &body_color, &type_color, &title_text, &title_color)) {
         return NULL;
     }
+
     PyObject *columns = PyDict_GetItemString(table_data, "columns");
     if (!columns || !PyList_Check(columns)) {
         return PyErr_Format(PyExc_TypeError, "'columns' must be a list");
     }
+
     int cols = PyList_Size(columns);
     char **col_keys = (char **)malloc(cols * sizeof(char *));
     char **col_headers = (char **)malloc(cols * sizeof(char *));
@@ -226,16 +236,19 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
         snprintf(full_header, sizeof(full_header), "%s (%s)", col_name_str, col_type_str);
         col_headers[j] = strdup(full_header);
     }
+
     PyObject *rows = PyDict_GetItemString(table_data, "rows");
     if (!rows || !PyList_Check(rows)) {
         return PyErr_Format(PyExc_TypeError, "'rows' must be a list");
     }
+
     int num_rows = PyList_Size(rows);
     char ***data = (char ***)malloc((num_rows + 1) * sizeof(char **));
     data[0] = (char **)malloc(cols * sizeof(char *));
     for (int j = 0; j < cols; j++) {
         data[0][j] = strdup(col_headers[j]);
     }
+
     for (int i = 0; i < num_rows; i++) {
         PyObject *row = PyList_GetItem(rows, i);
         if (!row || !PyDict_Check(row)) {
@@ -252,9 +265,11 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
             Py_DECREF(str_value);
         }
     }
+
     dyn_buf out;
     dyn_buf_init(&out);
     render_table(data, num_rows + 1, cols, &out, header_color, border_color, body_color, type_color, title_text, title_color);
+
     for (int i = 0; i <= num_rows; i++) {
         for (int j = 0; j < cols; j++) {
             free(data[i][j]);
@@ -262,6 +277,7 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
         free(data[i]);
     }
     free(data);
+
     for (int j = 0; j < cols; j++) {
         free(col_keys[j]);
         free(col_headers[j]);
@@ -270,18 +286,19 @@ static PyObject* py_render_table(PyObject* self, PyObject* args) {
     free(col_keys);
     free(col_headers);
     free(col_types);
+
     PyObject *result = PyUnicode_FromString(out.data);
     dyn_buf_free(&out);
     return result;
 }
 
-// Define method mappings.
+// Method mappings
 static PyMethodDef TableMethods[] = {
     {"render_table", py_render_table, METH_VARARGS, "Render table in C"},
     {NULL, NULL, 0, NULL}
 };
 
-// Module definition.
+// Module definition
 static struct PyModuleDef tablemodule = {
     PyModuleDef_HEAD_INIT,
     "table_render",
@@ -290,7 +307,7 @@ static struct PyModuleDef tablemodule = {
     TableMethods
 };
 
-// Initialize the Python module.
+// Module initialization
 PyMODINIT_FUNC PyInit_speedtable(void) {
     return PyModule_Create(&tablemodule);
 }
