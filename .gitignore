@@ -14,3 +14,6 @@ dist/
 .vscode/
 .env
 .venv/
+load_large_dataset.py
+test_data.csv
+MOCK_DATA.csv
