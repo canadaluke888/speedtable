@@ -60,13 +60,6 @@ const char* get_ansi_code(const char* color_name, int is_header) {
     if (strcmp(color_name, "magenta") == 0) return is_header ? "\033[1;35m" : "\033[0;35m";
     if (strcmp(color_name, "cyan") == 0) return is_header ? "\033[1;36m" : "\033[0;36m";
     if (strcmp(color_name, "white") == 0) return is_header ? "\033[1;37m" : "\033[0;37m";
-    if (strcmp(color_name, "bold_red") == 0) return "\033[1;31m";
-    if (strcmp(color_name, "bold_green") == 0) return "\033[1;32m";
-    if (strcmp(color_name, "bold_yellow") == 0) return "\033[1;33m";
-    if (strcmp(color_name, "bold_blue") == 0) return "\033[1;34m";
-    if (strcmp(color_name, "bold_magenta") == 0) return "\033[1;35m";
-    if (strcmp(color_name, "bold_cyan") == 0) return "\033[1;36m";
-    if (strcmp(color_name, "bold_white") == 0) return "\033[1;37m";
     return "\033[0m";
 }
 

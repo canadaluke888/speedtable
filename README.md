@@ -76,9 +76,6 @@ print(speedtable.render_table(
 | `magenta`        | Standard magenta          |
 | `cyan`           | Standard cyan             |
 | `white`          | Standard white            |
-| `bright_black`   | Gray (dim)                |
-| `bold_red`       | Bright bold red           |
-| `bold_white`     | Bold white (great for headers) |
 
 > ✨ Headers are always bold, and titles are always italicized.
 
